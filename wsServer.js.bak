@@ -1,0 +1,137 @@
+//create time 2016年6月18日9:48:12
+//author wsh
+//消息服务
+//应用场景：消息发送，游戏邀请
+
+// 数据格式： {
+//    fromId: "", //来源ID
+//    toId: 0, //接收对象 0广播---toId>0则toDomain忽略
+//    toDomain: '',//发送域，空为所有
+//    cmd: '', //命令
+//    data: "" //消息内容
+//   }
+
+
+var _tool = require('./tool.js');//加载js文件
+//var db = require('./db.js');//加载js文件
+var _WebSocketServer = require('websocket').server;
+var _http = require('http');
+var _heartbeat = 'heartbeat';
+//重写console.log
+console.log = (function (oriLogFunc) {
+    return function (str) {
+        oriLogFunc.call(console, str, _tool.getFullNowTime());
+    }
+})(console.log);
+
+var _server = _http.createServer(function(request, response) {
+});
+_server.listen(1460, function() { });
+
+// create the server
+var _wsServer = new _WebSocketServer({
+    httpServer: _server
+});
+
+// store all connected _clients
+var _clients = [];//{ conn: connection, id: id,domain:domain,userid:userid }
+var i = 0;
+console.log('start time:');
+_wsServer.on('request', function(request) {
+    
+    var connection = request.accept(null, request.origin);
+    var id = i;
+    console.log('conn domain/userid:' + request.resource);
+    var resource = request.resource.split('/');
+    var domain = resource[1];
+    var userid = resource[2];
+    _clients.push({ conn: connection, id: id, domain: domain, userid: userid });
+    i++;
+    //通知聊天在线人数
+    if (true) {//domain.indexOf('chat') != -1
+        noticeOnlineNum(0, domain, userid);
+    }
+    // Simply pass any received messages onto all other _clients
+    connection.on('message', function (message) {
+	    if (message.type === 'utf8') {
+            var datastr = message.utf8Data;
+            if (_tool.isNullOrEmpty(datastr)) {
+                return;
+            } else {
+                if (_heartbeat == datastr) {
+                    connection.sendUTF(datastr);
+                    return;
+                }
+                var data = JSON.parse(datastr);
+                if (data.toId > 0) {//对指定用户发送
+                    var sendConn = getConnByUserid(data.toId);
+                    sendConn.sendUTF(datastr);
+                } else if (data.toDomain.length>0) {//对域发送
+                    var sendClients = getClientByDomain(data.toDomain);
+                    for (var i in sendClients) {
+                        sendClients[i].conn.sendUTF(datastr);
+                    }
+                }
+            }
+        }
+    });
+
+    connection.on('close', function () {
+        console.log('close');
+        removeConn(id);
+    });
+});
+
+//移除连接
+function removeConn(id) {
+    var client;
+    for (var i in _clients) {
+        client = _clients[i];
+        if (client.id == id) {
+            console.log('remove userid:' + client.userid);
+            _clients.splice(i, 1);
+            //通知聊天在线人数
+            if (true) {//client.domain.indexOf('chat') != -1
+                noticeOnlineNum(0, client.domain, client.userid);
+            }
+            break;
+        }
+    }
+}
+
+//获取指定用户连接
+function getConnByUserid(userid) {
+    var client;
+    for (var i in _clients) {
+        client = _clients[i];
+        if (client.userid == userid) {
+            return client.conn;
+        }
+    }
+    return null;
+}
+
+//获取指定域用户
+function getClientByDomain(domain) {
+    return _clients.filter(function(c) {
+        return c.domain == domain;
+    });
+}
+
+//通知聊天在线人数
+function noticeOnlineNum(changeNum, domain, userid) {
+    var onlineNum = _clients.filter(function (x) {
+        return x.domain == domain;
+    }).length;
+    var sendData = {
+        fromId: 'server', //来源ID
+        toId: userid, //接收对象 0广播
+        toDomain: domain,
+        cmd: 'onlineNum', //命令
+        data: onlineNum + changeNum//消息内容
+    }
+    var sendClients = getClientByDomain(domain);
+    for (var i in sendClients) {
+        sendClients[i].conn.sendUTF(JSON.stringify(sendData));
+    }
+}
