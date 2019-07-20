@@ -20,13 +20,13 @@ log4js.configure({
         info: {
             type: "dateFile",
             filename: 'info',
-            pattern: "-yyyyMMdd.log",
+            pattern: "yyyyMMdd.log",
             alwaysIncludePattern: true//如果为true，则每个文件都会按pattern命名，否则最新的文件不会按照pattern命名
         },
         error: {
             type: "dateFile",
             filename: 'error',
-            pattern: "-yyyyMMdd.log",
+            pattern: "yyyyMMdd.log",
             alwaysIncludePattern: true//如果为true，则每个文件都会按pattern命名，否则最新的文件不会按照pattern命名
         }
     },
@@ -54,7 +54,7 @@ process.on('uncaughtException', function (err) {
     logger.error(err);
 });
 
-var _tool = require('./tool1.js');//加载js文件
+var _tool = require('./tool.js');//加载js文件
 //var db = require('./db.js');//加载js文件
 var _WebSocketServer = require('websocket').server;
 var _http = require('http');
