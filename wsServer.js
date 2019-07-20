@@ -13,11 +13,53 @@
 //    data: "" //消息内容
 //   }
 
-var _tool = require('./tool.js');//加载js文件
+//---日志
+const log4js = require('log4js');
+log4js.configure({
+    appenders: {
+        info: {
+            type: "dateFile",
+            filename: 'info',
+            pattern: "-yyyyMMdd.log",
+            alwaysIncludePattern: true//如果为true，则每个文件都会按pattern命名，否则最新的文件不会按照pattern命名
+        },
+        error: {
+            type: "dateFile",
+            filename: 'error',
+            pattern: "-yyyyMMdd.log",
+            alwaysIncludePattern: true//如果为true，则每个文件都会按pattern命名，否则最新的文件不会按照pattern命名
+        }
+    },
+    categories: {
+        default: { appenders: ['info'], level: 'info' },//level表示最低等级
+        error: { appenders: ['error'], level: 'error' }
+    }
+});
+
+const infoLogo = log4js.getLogger('info');
+const errorLogo = log4js.getLogger('error');
+var logger = {
+    info: function (lg) {
+        infoLogo.info(lg);
+    },
+    error: function (lg) {
+        errorLogo.error(lg);
+    }
+}
+//---日志 end
+
+//--全局异常捕获
+process.on('uncaughtException', function (err) {
+    //打印出错误
+    logger.error(err);
+});
+
+var _tool = require('./tool1.js');//加载js文件
 //var db = require('./db.js');//加载js文件
 var _WebSocketServer = require('websocket').server;
 var _http = require('http');
 var _heartbeat = 'heartbeat';
+
 //重写console.log
 console.log = (function (oriLogFunc) {
     return function (str) {
@@ -156,8 +198,6 @@ _wsServer.on('request', function(request) {
         userObj.waitMatch = waitMatch;
     }
 });
-
-
 
 //移除连接
 function removeConn(domain,userid) {
